@@ -118,7 +118,7 @@
           <span>🍼 Ultima Poppata</span>
           <span id="banner-feed-ago" class="font-semibold text-avocado">--</span>
         </div>
-        <div id="banner-feed-main" class="font-bold text-base leading-snug">Nessuna oggi</div>
+        <div id="banner-feed-main" class="font-bold text-base leading-snug">Nessuna ancora</div>
         <div id="banner-feed-sub" class="text-xs text-muted mt-1">Pronto per registrare</div>
       </div>
 
@@ -127,7 +127,7 @@
           <span>🧷 Ultimo Pannolino</span>
           <span id="banner-diaper-ago" class="font-semibold text-avocado">--</span>
         </div>
-        <div id="banner-diaper-main" class="font-bold text-base leading-snug">Nessuno oggi</div>
+        <div id="banner-diaper-main" class="font-bold text-base leading-snug">Nessuno ancora</div>
         <div id="banner-diaper-sub" class="text-xs text-muted mt-1">--</div>
       </div>
     </section>
@@ -364,14 +364,40 @@
       <div id="readonly-visits-list" class="space-y-2"></div>
     </section>
 
-    <!-- STORICO REGISTRAZIONI DI OGGI (Sempre visibile) -->
+    <!-- STORICO REGISTRAZIONI CON NAVIGATORE GIORNI PRECEDENTI (Sempre visibile) -->
     <section class="app-card rounded-3xl p-4 space-y-3">
-      <div class="flex items-center justify-between">
+      <div class="flex items-center justify-between gap-2">
         <div>
-          <h2 class="font-bold text-base">Ultime registrazioni di oggi</h2>
+          <h2 id="history-section-title" class="font-bold text-base">Registrazioni di Oggi</h2>
           <p id="today-summary-text" class="text-xs text-muted">0 poppate • 0 pannolini</p>
         </div>
-        <span id="today-events-count" class="text-xs font-semibold px-2.5 py-1 rounded-full app-elevated">0 eventi</span>
+        <div class="flex items-center gap-1.5">
+          <button type="button" onclick="toggleHistoryViewMode()" id="btn-history-mode"
+            class="btn-press px-2.5 py-1 rounded-full app-elevated text-xs font-bold text-avocado">
+            📋 Tutto
+          </button>
+          <span id="today-events-count" class="text-xs font-semibold px-2.5 py-1 rounded-full app-elevated">0</span>
+        </div>
+      </div>
+
+      <!-- Barra Navigazione Giorni Precedenti -->
+      <div id="history-day-nav" class="flex items-center justify-between gap-2 app-elevated rounded-2xl p-1.5">
+        <button type="button" onclick="shiftHistoryDate(-1)"
+          class="btn-press px-3 py-1.5 rounded-xl app-card text-xs font-bold">
+          ◀ Prec.
+        </button>
+        <div class="flex items-center gap-1.5">
+          <input type="date" id="history-date-picker" onchange="setHistoryDate(this.value)"
+            class="bg-transparent text-xs font-bold text-center focus:outline-none" />
+          <button type="button" onclick="resetHistoryToToday()" id="btn-back-today"
+            class="hidden btn-press px-2 py-0.5 rounded-lg bg-avocado-soft text-avocado text-[11px] font-bold">
+            Oggi
+          </button>
+        </div>
+        <button type="button" onclick="shiftHistoryDate(1)" id="btn-next-day"
+          class="btn-press px-3 py-1.5 rounded-xl app-card text-xs font-bold">
+          Succ. ▶
+        </button>
       </div>
 
       <div id="today-events-list" class="space-y-2.5"></div>
@@ -423,7 +449,7 @@
       <div class="app-elevated rounded-2xl p-3.5 space-y-2.5">
         <label class="block text-xs font-bold text-avocado">🌐 Link Pubblico Sola Lettura (GitHub Pages)</label>
         <p class="text-[11px] text-muted">Incolla qui l'indirizzo della tua pagina GitHub Pages: il link generato per i nonni resterà valido per sempre senza possibilità di modifica.</p>
-        <input type="url" id="input-public-url" placeholder="https://tuoutente.github.io/diario-francy/"
+        <input type="url" id="input-public-url" placeholder="https://ziomonte80.github.io/diario-francy/"
           onchange="saveFamilySettings()"
           class="w-full px-3 py-2 rounded-xl app-card text-xs" />
         <button type="button" onclick="copyNonniLink()" class="btn-press w-full py-3 rounded-xl bg-avocado font-extrabold text-xs">
@@ -445,7 +471,7 @@
         <button onclick="closeModal('modal-calendar')" class="px-3 py-1 rounded-xl app-elevated text-sm font-bold">✕</button>
       </div>
       <p class="text-xs text-muted leading-relaxed">
-        Collega l'app Android al calendario Google <strong>"Diario Francy"</strong> per registrare automaticamente poppate, pannolini e visite anche sul calendario condiviso.
+        Collega l'app Android al calendario <strong>"Diario Francy"</strong> nell'app <strong>Google Calendar</strong> del telefono. Dopo il collegamento, apri Google Calendar → menu <strong>≡</strong> e attiva la spunta su <em>Diario Francy</em>.
       </p>
       <div id="calendar-status-box" class="app-elevated rounded-2xl p-3 text-xs font-semibold">
         Stato: <span id="calendar-status-label" class="text-avocado">Non ancora collegato</span>
@@ -471,16 +497,20 @@
         ☁️ Forza Sincronizzazione Cloud Ora
       </button>
 
+      <button type="button" onclick="recoverAllLegacyData(true)" class="btn-press w-full py-3 rounded-2xl app-elevated font-bold text-sm">
+        🔍 Recupera Dati Versione Precedente sul Telefono
+      </button>
+
       <button type="button" onclick="exportExcel()" class="btn-press w-full py-3 rounded-2xl bg-avocado font-extrabold text-sm">
         📊 Esporta Diario Completo in Excel (.xlsx)
       </button>
 
       <button type="button" onclick="exportJSON()" class="btn-press w-full py-3 rounded-2xl app-elevated font-bold text-sm">
-        💾 Esporta Backup JSON
+        📤 Condividi / Salva Backup JSON
       </button>
 
       <label class="btn-press block w-full py-3 rounded-2xl app-elevated font-bold text-sm text-center cursor-pointer">
-        📂 Ripristina Backup JSON
+        📂 Ripristina Backup JSON da File
         <input type="file" accept=".json" onchange="importJSON(event)" class="hidden" />
       </label>
     </div>
@@ -517,15 +547,22 @@
     // 2. STATO GLOBALE & PERSISTENZA LOCALE
     // ==========================================
     const STORAGE_KEY = "diario_francy_state_v3";
-    const LEGACY_KEYS = ["diario_francy_state_v2", "diario_francy_state_v1", "diario_francy_state"];
     const urlParams = new URLSearchParams(window.location.search);
     const isUrlReadOnly = urlParams.get("view") === "nonni";
     const urlFamilyCode = urlParams.get("family");
 
+    function getLocalDateStr(tsOrDate) {
+      const d = tsOrDate instanceof Date ? tsOrDate : new Date(tsOrDate || Date.now());
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
+    }
+
     let state = {
       theme: "dark",
       familyCode: (urlFamilyCode || "FRANCY-2026").toUpperCase(),
-      publicUrl: "",
+      publicUrl: "https://ziomonte80.github.io/diario-francy/",
       calendarId: null,
       readOnlyScreen: isUrlReadOnly,
       feedings: [],
@@ -533,7 +570,7 @@
       visits: [],
       deletedIds: [],
       timer: {
-        status: "idle", // 'idle' | 'running' | 'paused'
+        status: "idle",
         startTimestamp: null,
         pausedAtTimestamp: null,
         accumulatedMs: 0,
@@ -541,6 +578,11 @@
         breastSide: "Sx",
         milkMl: 60
       }
+    };
+
+    let historyNav = {
+      mode: "day", // "day" | "all"
+      selectedDate: getLocalDateStr(new Date())
     };
 
     let cuddleTimer = {
@@ -552,16 +594,7 @@
 
     function loadLocalState() {
       try {
-        let raw = localStorage.getItem(STORAGE_KEY);
-        if (!raw) {
-          for (const legacyKey of LEGACY_KEYS) {
-            const legacyRaw = localStorage.getItem(legacyKey);
-            if (legacyRaw) {
-              raw = legacyRaw;
-              break;
-            }
-          }
-        }
+        const raw = localStorage.getItem(STORAGE_KEY);
         if (raw) {
           const parsed = JSON.parse(raw);
           state = {
@@ -577,9 +610,6 @@
         if (isUrlReadOnly) {
           state.readOnlyScreen = true;
         }
-        if (!state.publicUrl && window.location.protocol.startsWith("http") && !window.location.hostname.includes("localhost")) {
-          state.publicUrl = (window.location.origin + window.location.pathname).replace(/\/index\.html$/, "/");
-        }
       } catch (e) {
         console.error("Errore caricamento stato:", e);
       }
@@ -590,6 +620,114 @@
         localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
       } catch (e) {
         console.error("Errore salvataggio locale:", e);
+      }
+    }
+
+    // ==========================================
+    // RECUPERO AUTOMATICO DA QUALSIASI CHIAVE PRECEDENTE
+    // ==========================================
+    function normalizeFeedItem(f, idx) {
+      const ts = Number(f.timestamp || f.startTime || f.date || Date.now());
+      const rawType = String(f.feedType || f.type || f.milkType || "Seno");
+      let feedType = "Seno";
+      if (/artif/i.test(rawType)) feedType = "Artificiale";
+      else if (/giunt/i.test(rawType)) feedType = "Giunta";
+
+      let breastSide = f.breastSide || f.side || null;
+      if (breastSide) {
+        breastSide = /dx|destr|right/i.test(String(breastSide)) ? "Dx" : "Sx";
+      }
+
+      return {
+        id: f.id || `feed_rec_${ts}_${idx}`,
+        timestamp: ts,
+        updatedAt: f.updatedAt || Date.now(),
+        feedType,
+        breastSide: feedType === "Seno" ? breastSide : null,
+        milkMl: feedType !== "Seno" ? Number(f.milkMl || f.ml || f.quantity || 60) : null,
+        durationMin: Number(f.durationMin || f.duration || 15)
+      };
+    }
+
+    function normalizeDiaperItem(d, idx) {
+      const ts = Number(d.timestamp || d.time || d.date || Date.now());
+      const rawType = String(d.type || d.diaperType || "Pipì");
+      let type = "Pipì";
+      if (/entrambi|pip.*pup|pup.*pip/i.test(rawType)) type = "Pipì + Pupù";
+      else if (/pup/i.test(rawType)) type = "Pupù";
+
+      return {
+        id: d.id || `diaper_rec_${ts}_${idx}`,
+        timestamp: ts,
+        updatedAt: d.updatedAt || Date.now(),
+        type
+      };
+    }
+
+    function recoverAllLegacyData(notifyUser) {
+      let recoveredFeeds = [];
+      let recoveredDiapers = [];
+      let recoveredVisits = [];
+
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (!key || key === STORAGE_KEY) continue;
+          const raw = localStorage.getItem(key);
+          if (!raw || (!raw.startsWith("{") && !raw.startsWith("["))) continue;
+
+          try {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) {
+              if (/feed|poppat/i.test(key)) {
+                parsed.forEach((x, idx) => recoveredFeeds.push(normalizeFeedItem(x, idx)));
+              } else if (/diaper|pannolin/i.test(key)) {
+                parsed.forEach((x, idx) => recoveredDiapers.push(normalizeDiaperItem(x, idx)));
+              }
+            } else if (parsed && typeof parsed === "object") {
+              const feedsArr = parsed.feedings || parsed.feeds || parsed.poppate;
+              const diapersArr = parsed.diapers || parsed.changes || parsed.pannolini;
+              const visitsArr = parsed.visits || parsed.visite;
+              if (Array.isArray(feedsArr)) {
+                feedsArr.forEach((x, idx) => recoveredFeeds.push(normalizeFeedItem(x, idx)));
+              }
+              if (Array.isArray(diapersArr)) {
+                diapersArr.forEach((x, idx) => recoveredDiapers.push(normalizeDiaperItem(x, idx)));
+              }
+              if (Array.isArray(visitsArr)) {
+                visitsArr.forEach(v => recoveredVisits.push(v));
+              }
+            }
+          } catch (_) {}
+        }
+      } catch (e) {
+        console.warn("Scansione legacy:", e);
+      }
+
+      const deletedSet = new Set(state.deletedIds || []);
+      const beforeCount = state.feedings.length + state.diapers.length;
+
+      if (recoveredFeeds.length) {
+        state.feedings = mergeById(state.feedings, recoveredFeeds, deletedSet);
+      }
+      if (recoveredDiapers.length) {
+        state.diapers = mergeById(state.diapers, recoveredDiapers, deletedSet);
+      }
+      if (recoveredVisits.length) {
+        state.visits = mergeById(state.visits, recoveredVisits, deletedSet);
+      }
+
+      const afterCount = state.feedings.length + state.diapers.length;
+      if (afterCount > beforeCount) {
+        const fixed = assignAlternatingSidesIfMissing(state.feedings);
+        state.feedings = fixed.list;
+        autoSelectNextBreastSide();
+        saveLocalState();
+        renderAll();
+        pushToCloud();
+        if (notifyUser) showToast(`Recuperati ${afterCount - beforeCount} eventi precedenti!`);
+      } else if (notifyUser) {
+        showToast("Nessun altro dato locale da recuperare");
       }
     }
 
@@ -819,6 +957,7 @@
       };
 
       state.feedings.unshift(entry);
+      historyNav.selectedDate = getLocalDateStr(new Date());
       resetFeedTimer();
       autoSelectNextBreastSide();
       saveLocalState();
@@ -864,6 +1003,7 @@
 
       state.feedings.unshift(entry);
       state.feedings.sort((a, b) => b.timestamp - a.timestamp);
+      historyNav.selectedDate = getLocalDateStr(new Date());
       autoSelectNextBreastSide();
       saveLocalState();
       renderAll();
@@ -908,6 +1048,7 @@
 
       state.diapers.unshift(entry);
       state.diapers.sort((a, b) => b.timestamp - a.timestamp);
+      historyNav.selectedDate = getLocalDateStr(new Date());
       saveLocalState();
       renderAll();
       pushToCloud();
@@ -1072,20 +1213,20 @@
       if (!state.calendarId) return;
 
       let count = 0;
-      for (const f of state.feedings.slice(0, 30)) {
+      for (const f of state.feedings.slice(0, 50)) {
         const title = f.feedType === "Seno" ? `🍼 Poppata Seno (${f.breastSide || "Sx"})` : `🍼 Poppata ${f.feedType} (${f.milkMl || 0} ml)`;
         await syncEventToDedicatedCalendar(title, `Durata: ${f.durationMin} min`, f.timestamp, f.durationMin);
         count++;
       }
-      for (const d of state.diapers.slice(0, 30)) {
+      for (const d of state.diapers.slice(0, 50)) {
         await syncEventToDedicatedCalendar(`🧷 Pannolino: ${d.type}`, "Diario Francy", d.timestamp, 10);
         count++;
       }
-      showToast(`${count} eventi inviati al Calendario!`);
+      showToast(`${count} eventi inviati a Google Calendar!`);
     }
 
     // ==========================================
-    // 7. NONNI, BACKUP JSON & EXPORT EXCEL
+    // 7. NONNI, CONDIVISIONE BACKUP JSON & EXCEL
     // ==========================================
     function saveFamilySettings() {
       const codeInput = document.getElementById("input-family-code").value.trim().toUpperCase();
@@ -1105,14 +1246,9 @@
 
     function copyNonniLink() {
       saveFamilySettings();
-      let base = (state.publicUrl || (window.location.origin + window.location.pathname))
+      let base = (state.publicUrl || "https://ziomonte80.github.io/diario-francy/")
         .replace(/\/index\.html$/, "")
         .replace(/\/$/, "");
-
-      if (base.includes("localhost")) {
-        showToast("Incolla prima l'indirizzo GitHub Pages qui sopra!");
-        return;
-      }
 
       const link = `${base}/?view=nonni&family=${encodeURIComponent(state.familyCode)}`;
       if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -1139,11 +1275,35 @@
       renderAll();
     }
 
-    function exportJSON() {
-      const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+    async function exportJSON() {
+      const jsonStr = JSON.stringify(state, null, 2);
+      const fileName = `diario-francy-backup-${getLocalDateStr(new Date())}.json`;
+
+      try {
+        const file = new File([jsonStr], fileName, { type: "application/json" });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({ title: "Backup Diario Francy", files: [file] });
+          showToast("Backup JSON esportato!");
+          return;
+        }
+      } catch (e) {
+        if (e && e.name === "AbortError") return;
+      }
+
+      try {
+        if (navigator.share) {
+          await navigator.share({ title: "Backup Diario Francy", text: jsonStr });
+          showToast("Backup JSON condiviso!");
+          return;
+        }
+      } catch (e) {
+        if (e && e.name === "AbortError") return;
+      }
+
+      const blob = new Blob([jsonStr], { type: "application/json" });
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
-      a.download = `diario-francy-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      a.download = fileName;
       a.click();
       showToast("Backup JSON scaricato!");
     }
@@ -1172,7 +1332,7 @@
       reader.readAsText(file);
     }
 
-    function exportExcel() {
+    async function exportExcel() {
       if (typeof XLSX === "undefined") {
         showToast("Libreria Excel non disponibile offline");
         return;
@@ -1196,16 +1356,37 @@
       const ws = XLSX.utils.json_to_sheet(rows);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Diario Francy");
-      XLSX.writeFile(wb, `Diario_Francy_${new Date().toISOString().slice(0, 10)}.xlsx`);
+      const fileName = `Diario_Francy_${getLocalDateStr(new Date())}.xlsx`;
+
+      try {
+        const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+        const file = new File([wbout], fileName, {
+          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({ title: "Diario Francy Excel", files: [file] });
+          showToast("File Excel esportato!");
+          return;
+        }
+      } catch (e) {
+        if (e && e.name === "AbortError") return;
+      }
+
+      XLSX.writeFile(wb, fileName);
       showToast("File Excel scaricato!");
     }
 
     // ==========================================
-    // 8. RENDERING INTERFACCIA & UTILITY
+    // 8. NAVIGAZIONE STORICO & RENDERING UI
     // ==========================================
     function formatHHMM(ts) {
       const d = new Date(ts);
       return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+    }
+
+    function formatShortDate(ts) {
+      const d = new Date(ts);
+      return String(d.getDate()).padStart(2, "0") + "/" + String(d.getMonth() + 1).padStart(2, "0");
     }
 
     function formatTimeAgo(ts) {
@@ -1217,18 +1398,53 @@
       return `${h}h ${m}m fa`;
     }
 
-    function isToday(ts) {
-      const d = new Date(ts);
-      const now = new Date();
-      return d.getDate() === now.getDate() && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-    }
-
     function parseTimeTodayToTimestamp(hhmm) {
       if (!hhmm) return Date.now();
       const [h, m] = hhmm.split(":").map(Number);
       const d = new Date();
       d.setHours(h || 0, m || 0, 0, 0);
       return d.getTime();
+    }
+
+    function shiftHistoryDate(deltaDays) {
+      const [y, m, d] = historyNav.selectedDate.split("-").map(Number);
+      const dt = new Date(y, m - 1, d + deltaDays);
+      const todayStr = getLocalDateStr(new Date());
+      const nextStr = getLocalDateStr(dt);
+      if (nextStr > todayStr) return;
+      historyNav.selectedDate = nextStr;
+      historyNav.mode = "day";
+      renderTodayHistory();
+    }
+
+    function setHistoryDate(dateStr) {
+      if (!dateStr) return;
+      historyNav.selectedDate = dateStr;
+      historyNav.mode = "day";
+      renderTodayHistory();
+    }
+
+    function resetHistoryToToday() {
+      historyNav.selectedDate = getLocalDateStr(new Date());
+      historyNav.mode = "day";
+      renderTodayHistory();
+    }
+
+    function toggleHistoryViewMode() {
+      historyNav.mode = historyNav.mode === "day" ? "all" : "day";
+      renderTodayHistory();
+    }
+
+    function getFriendlyDateTitle(dateStr) {
+      const todayStr = getLocalDateStr(new Date());
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayStr = getLocalDateStr(yesterday);
+
+      if (dateStr === todayStr) return "Registrazioni di Oggi";
+      if (dateStr === yesterdayStr) return "Registrazioni di Ieri";
+      const [y, m, d] = dateStr.split("-");
+      return `Registrazioni del ${d}/${m}/${y}`;
     }
 
     function updateTimerUI() {
@@ -1302,7 +1518,7 @@
           `Ore ${formatHHMM(lastFeed.timestamp)} • Prossima: ${nextSide}`;
       } else {
         document.getElementById("banner-feed-ago").textContent = "--";
-        document.getElementById("banner-feed-main").textContent = "Nessuna oggi";
+        document.getElementById("banner-feed-main").textContent = "Nessuna ancora";
         document.getElementById("banner-feed-sub").textContent = `Consigliata: ${nextSide}`;
       }
 
@@ -1313,22 +1529,51 @@
         document.getElementById("banner-diaper-sub").textContent = `Ore ${formatHHMM(lastDiaper.timestamp)}`;
       } else {
         document.getElementById("banner-diaper-ago").textContent = "--";
-        document.getElementById("banner-diaper-main").textContent = "Nessuno oggi";
+        document.getElementById("banner-diaper-main").textContent = "Nessuno ancora";
         document.getElementById("banner-diaper-sub").textContent = "--";
       }
     }
 
     function renderTodayHistory() {
-      const todayFeeds = state.feedings.filter(f => isToday(f.timestamp));
-      const todayDiapers = state.diapers.filter(d => isToday(d.timestamp));
-      const totalMl = todayFeeds.reduce((acc, f) => acc + (f.milkMl || 0), 0);
+      const todayStr = getLocalDateStr(new Date());
+      const isAllMode = historyNav.mode === "all";
+
+      const titleEl = document.getElementById("history-section-title");
+      const modeBtn = document.getElementById("btn-history-mode");
+      const dayNav = document.getElementById("history-day-nav");
+      const datePicker = document.getElementById("history-date-picker");
+      const backTodayBtn = document.getElementById("btn-back-today");
+      const nextDayBtn = document.getElementById("btn-next-day");
+
+      titleEl.textContent = isAllMode ? "Tutto lo storico" : getFriendlyDateTitle(historyNav.selectedDate);
+      modeBtn.textContent = isAllMode ? "📅 Per Giorno" : "📋 Tutto";
+      dayNav.classList.toggle("hidden", isAllMode);
+
+      if (!isAllMode) {
+        datePicker.value = historyNav.selectedDate;
+        datePicker.max = todayStr;
+        const isTodaySelected = historyNav.selectedDate === todayStr;
+        backTodayBtn.classList.toggle("hidden", isTodaySelected);
+        nextDayBtn.disabled = isTodaySelected;
+        nextDayBtn.classList.toggle("opacity-40", isTodaySelected);
+      }
+
+      const filteredFeeds = isAllMode
+        ? state.feedings
+        : state.feedings.filter(f => getLocalDateStr(f.timestamp) === historyNav.selectedDate);
+
+      const filteredDiapers = isAllMode
+        ? state.diapers
+        : state.diapers.filter(d => getLocalDateStr(d.timestamp) === historyNav.selectedDate);
+
+      const totalMl = filteredFeeds.reduce((acc, f) => acc + (f.milkMl || 0), 0);
 
       document.getElementById("today-summary-text").textContent =
-        `${todayFeeds.length} poppate${totalMl > 0 ? ` (${totalMl} ml)` : ""} • ${todayDiapers.length} pannolini`;
+        `${filteredFeeds.length} poppate${totalMl > 0 ? ` (${totalMl} ml)` : ""} • ${filteredDiapers.length} pannolini`;
 
       const combined = [
-        ...todayFeeds.map(f => ({ kind: "feed", data: f, timestamp: f.timestamp })),
-        ...todayDiapers.map(d => ({ kind: "diaper", data: d, timestamp: d.timestamp }))
+        ...filteredFeeds.map(f => ({ kind: "feed", data: f, timestamp: f.timestamp })),
+        ...filteredDiapers.map(d => ({ kind: "diaper", data: d, timestamp: d.timestamp }))
       ].sort((a, b) => b.timestamp - a.timestamp);
 
       document.getElementById("today-events-count").textContent = `${combined.length} eventi`;
@@ -1337,24 +1582,25 @@
       if (!combined.length) {
         container.innerHTML = `
           <div class="text-center py-6 space-y-2">
-            <p class="text-xs text-muted">Nessuna registrazione per oggi.</p>
+            <p class="text-xs text-muted">${isAllMode ? "Nessuna registrazione salvata." : "Nessuna registrazione per questa data."}</p>
             ${!state.readOnlyScreen ? `
-              <label class="inline-block px-3 py-2 rounded-xl app-elevated text-xs font-bold text-avocado cursor-pointer">
-                📂 Carica Backup JSON
-                <input type="file" accept=".json" onchange="importJSON(event)" class="hidden" />
-              </label>` : ""}
+              <button type="button" onclick="recoverAllLegacyData(true)"
+                class="inline-block px-3 py-2 rounded-xl app-elevated text-xs font-bold text-avocado">
+                🔍 Recupera dati versione precedente
+              </button>` : ""}
           </div>`;
         return;
       }
 
       container.innerHTML = combined.map(item => {
+        const datePrefix = isAllMode ? `${formatShortDate(item.timestamp)} • ` : "";
         if (item.kind === "feed") {
           const f = item.data;
           const isBreast = f.feedType === "Seno";
           const label = isBreast
             ? `Poppata Seno (${f.breastSide || "Sx"})`
             : `Poppata ${f.feedType}${f.milkMl ? ` • ${f.milkMl} ml` : ""}`;
-          const sub = `${formatHHMM(f.timestamp)} • Durata ${f.durationMin || 0} min`;
+          const sub = `${datePrefix}${formatHHMM(f.timestamp)} • Durata ${f.durationMin || 0} min`;
 
           return `
             <div class="app-elevated rounded-2xl p-3 flex items-center justify-between gap-2">
@@ -1385,7 +1631,7 @@
                 <span class="text-xl">${icon}</span>
                 <div>
                   <div class="font-bold text-sm">Pannolino: ${d.type}</div>
-                  <div class="text-xs text-muted">${formatHHMM(d.timestamp)}</div>
+                  <div class="text-xs text-muted">${datePrefix}${formatHHMM(d.timestamp)}</div>
                 </div>
               </div>
               ${!state.readOnlyScreen ? `
@@ -1482,6 +1728,7 @@
     // ==========================================
     function init() {
       loadLocalState();
+      recoverAllLegacyData(false);
       const fixed = assignAlternatingSidesIfMissing(state.feedings);
       if (fixed.modified) {
         state.feedings = fixed.list;
