@@ -1,0 +1,1503 @@
+<!DOCTYPE html>
+<html lang="it" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Diario Francy</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Firebase SDK (Compat per funzionamento universale su Android APK e GitHub Pages) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <!-- SheetJS per Export Excel -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    :root {
+      --bg-main: #0e1410;
+      --bg-card: #162019;
+      --bg-elevated: #1e2b22;
+      --border-subtle: #2a3c30;
+      --text-main: #f1f5f2;
+      --text-muted: #9cb0a2;
+      --avocado: #84cc16;
+      --avocado-dark: #4d7c0f;
+      --avocado-soft: rgba(132, 204, 22, 0.16);
+    }
+    html.light {
+      --bg-main: #f4f7f4;
+      --bg-card: #ffffff;
+      --bg-elevated: #eaf1ec;
+      --border-subtle: #d0dfd4;
+      --text-main: #142118;
+      --text-muted: #526959;
+      --avocado: #5b8c15;
+      --avocado-dark: #3f620e;
+      --avocado-soft: rgba(91, 140, 21, 0.14);
+    }
+    body {
+      background-color: var(--bg-main);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+    input, select, textarea { user-select: text; }
+    .app-card {
+      background-color: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+    }
+    .app-elevated {
+      background-color: var(--bg-elevated);
+      border: 1px solid var(--border-subtle);
+    }
+    .text-muted { color: var(--text-muted); }
+    .bg-avocado { background-color: var(--avocado); color: #0c1409; }
+    .bg-avocado-soft { background-color: var(--avocado-soft); }
+    .border-avocado { border-color: var(--avocado); }
+    .text-avocado { color: var(--avocado); }
+    .btn-press:active { transform: scale(0.97); }
+  </style>
+</head>
+<body class="min-h-screen pb-24">
+
+  <!-- HEADER -->
+  <header class="sticky top-0 z-30 border-b" style="background-color: var(--bg-main); border-color: var(--border-subtle);" id="main-header">
+    <div class="max-w-lg mx-auto px-4 py-3 flex items-center justify-between gap-2">
+      <div class="flex items-center gap-2.5">
+        <span class="text-2xl">🥑</span>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="font-bold text-lg leading-tight tracking-tight">Diario Francy</h1>
+            <span id="sync-badge" class="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-avocado-soft text-avocado">● Cloud</span>
+          </div>
+          <p id="header-subtitle" class="text-xs text-muted">Mamma &amp; Papà Sync</p>
+        </div>
+      </div>
+
+      <!-- Azioni Header (nascoste in modalità sola lettura Nonni) -->
+      <div id="parent-header-actions" class="flex items-center gap-1.5">
+        <button onclick="openModal('modal-nonni')" class="btn-press px-2.5 py-1.5 rounded-xl app-elevated text-xs font-semibold flex items-center gap-1" title="Bacheca Nonni e Amici">
+          <span>👴👵</span><span class="hidden sm:inline">Nonni</span>
+        </button>
+        <button onclick="openModal('modal-calendar')" class="btn-press px-2.5 py-1.5 rounded-xl app-elevated text-xs font-semibold flex items-center gap-1" title="Calendario Google">
+          <span>📅</span><span class="hidden sm:inline">Sync</span>
+        </button>
+        <button onclick="openModal('modal-data')" class="btn-press px-2.5 py-1.5 rounded-xl app-elevated text-xs font-semibold flex items-center gap-1" title="Backup e Dati">
+          <span>🗄️</span>
+        </button>
+        <button onclick="toggleTheme()" id="btn-theme" class="btn-press px-2.5 py-1.5 rounded-xl app-elevated text-xs font-semibold" title="Cambia tema">
+          ☀️
+        </button>
+      </div>
+
+      <!-- Pulsante uscita anteprima sola lettura -->
+      <div id="readonly-header-actions" class="hidden">
+        <button onclick="exitReadOnlyPreview()" id="btn-exit-readonly" class="btn-press px-3 py-1.5 rounded-xl app-elevated text-xs font-semibold">
+          🔒 Esci
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-lg mx-auto px-4 pt-4 space-y-4">
+
+    <!-- BANNER SOLA LETTURA NONNI -->
+    <div id="readonly-banner" class="hidden rounded-2xl p-3.5 bg-avocado-soft border border-avocado">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-sm font-bold text-avocado">👀 Bacheca Famiglia &amp; Nonni (Sola Lettura)</p>
+          <p class="text-xs text-muted mt-0.5">Aggiornamenti in tempo reale di Francy • Nessuna modifica consentita</p>
+        </div>
+        <button onclick="toggleTheme()" class="btn-press px-2.5 py-1.5 rounded-xl app-elevated text-xs">☀️/🌙</button>
+      </div>
+    </div>
+
+    <!-- BANNER RIEPILOGO ULTIMI EVENTI (Sempre visibile) -->
+    <section class="grid grid-cols-2 gap-3">
+      <div class="app-card rounded-2xl p-3.5">
+        <div class="flex items-center justify-between text-xs text-muted mb-1">
+          <span>🍼 Ultima Poppata</span>
+          <span id="banner-feed-ago" class="font-semibold text-avocado">--</span>
+        </div>
+        <div id="banner-feed-main" class="font-bold text-base leading-snug">Nessuna oggi</div>
+        <div id="banner-feed-sub" class="text-xs text-muted mt-1">Pronto per registrare</div>
+      </div>
+
+      <div class="app-card rounded-2xl p-3.5">
+        <div class="flex items-center justify-between text-xs text-muted mb-1">
+          <span>🧷 Ultimo Pannolino</span>
+          <span id="banner-diaper-ago" class="font-semibold text-avocado">--</span>
+        </div>
+        <div id="banner-diaper-main" class="font-bold text-base leading-snug">Nessuno oggi</div>
+        <div id="banner-diaper-sub" class="text-xs text-muted mt-1">--</div>
+      </div>
+    </section>
+
+    <!-- CONTENITORE CONTROLLI GENITORI (Nascosto in modalità Nonni) -->
+    <div id="parent-controls-wrapper" class="space-y-4">
+
+      <!-- TAB 1: POPPATE & PANNOLINI -->
+      <div id="tab-daily" class="space-y-4">
+
+        <!-- CARD POPPATA -->
+        <section class="app-card rounded-3xl p-4 space-y-4">
+          <div class="flex items-center justify-between">
+            <h2 class="font-bold text-base flex items-center gap-2">🍼 Registra Poppata</h2>
+            <span id="suggested-side-pill" class="text-xs font-semibold px-2.5 py-1 rounded-full bg-avocado-soft text-avocado">
+              Prossima: Sinistra (Sx)
+            </span>
+          </div>
+
+          <!-- Tipo Poppata -->
+          <div class="grid grid-cols-3 gap-2">
+            <button type="button" onclick="selectFeedType('Seno')" data-feed-type="Seno"
+              class="feed-type-btn btn-press py-2.5 px-2 rounded-2xl border text-sm font-bold transition bg-avocado-soft border-avocado text-avocado">
+              🤱 Seno
+            </button>
+            <button type="button" onclick="selectFeedType('Artificiale')" data-feed-type="Artificiale"
+              class="feed-type-btn btn-press py-2.5 px-2 rounded-2xl border text-sm font-bold transition app-elevated">
+              🍼 Artificiale
+            </button>
+            <button type="button" onclick="selectFeedType('Giunta')" data-feed-type="Giunta"
+              class="feed-type-btn btn-press py-2.5 px-2 rounded-2xl border text-sm font-bold transition app-elevated">
+              ➕ Giunta
+            </button>
+          </div>
+
+          <!-- Selettore Lato Seno (Sx / Dx) -->
+          <div id="breast-side-box" class="space-y-1.5">
+            <div class="flex items-center justify-between text-xs text-muted">
+              <span>Lato prevalente (alterna ad ogni poppata):</span>
+            </div>
+            <div class="grid grid-cols-2 gap-2.5">
+              <button type="button" onclick="selectBreastSide('Sx')" id="btn-side-sx"
+                class="btn-press py-3 px-3 rounded-2xl border font-bold text-sm flex items-center justify-center gap-2 bg-avocado-soft border-avocado text-avocado">
+                ⬅️ Sinistra (Sx)
+              </button>
+              <button type="button" onclick="selectBreastSide('Dx')" id="btn-side-dx"
+                class="btn-press py-3 px-3 rounded-2xl border font-bold text-sm flex items-center justify-center gap-2 app-elevated">
+                ➡️ Destra (Dx)
+              </button>
+            </div>
+          </div>
+
+          <!-- Box Quantità Latte (ml) per Artificiale / Giunta -->
+          <div id="milk-ml-box" class="hidden space-y-2">
+            <label class="block text-xs text-muted">Quantità latte (ml):</label>
+            <div class="flex items-center gap-2">
+              <input type="number" id="input-milk-ml" value="60" min="5" max="400" step="5"
+                class="w-24 px-3 py-2.5 rounded-xl app-elevated font-bold text-center text-base focus:outline-none focus:border-avocado" />
+              <div class="flex gap-1.5 flex-1">
+                <button type="button" onclick="setMilkMl(30)" class="btn-press flex-1 py-2 rounded-xl app-elevated text-xs font-bold">30</button>
+                <button type="button" onclick="setMilkMl(60)" class="btn-press flex-1 py-2 rounded-xl app-elevated text-xs font-bold">60</button>
+                <button type="button" onclick="setMilkMl(90)" class="btn-press flex-1 py-2 rounded-xl app-elevated text-xs font-bold">90</button>
+                <button type="button" onclick="setMilkMl(120)" class="btn-press flex-1 py-2 rounded-xl app-elevated text-xs font-bold">120</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- CRONOMETRO POPPATA -->
+          <div class="app-elevated rounded-2xl p-4 text-center space-y-3">
+            <div id="timer-display" class="text-4xl font-mono font-extrabold tracking-wider">00:00</div>
+            <div id="timer-status-text" class="text-xs text-muted">Pronto per cronometrare la poppata</div>
+            <div id="timer-pause-indicator" class="hidden text-xs font-semibold text-amber-400">
+              ⏸ In pausa da <span id="pause-duration-text">00:00</span> • Riprende o ha finito?
+            </div>
+
+            <!-- Stato IDLE -->
+            <div id="timer-controls-idle">
+              <button type="button" onclick="startFeedTimer()"
+                class="btn-press w-full py-3.5 rounded-2xl bg-avocado font-extrabold text-base shadow-lg flex items-center justify-center gap-2">
+                ▶ Avvia Poppata
+              </button>
+            </div>
+
+            <!-- Stato RUNNING -->
+            <div id="timer-controls-running" class="hidden space-y-2">
+              <button type="button" onclick="pauseFeedTimer()"
+                class="btn-press w-full py-3 rounded-2xl bg-amber-500/20 border border-amber-400/50 text-amber-300 font-bold text-sm">
+                ⏸ Pausa • Si è staccato
+              </button>
+              <div class="grid grid-cols-3 gap-2">
+                <button type="button" onclick="finishAndSaveTimer()"
+                  class="btn-press col-span-2 py-3 rounded-2xl bg-avocado font-extrabold text-sm">
+                  ✓ Ha già finito? Salva ora
+                </button>
+                <button type="button" onclick="resetFeedTimer()"
+                  class="btn-press py-3 rounded-2xl app-card text-xs font-semibold text-muted">
+                  Annulla
+                </button>
+              </div>
+            </div>
+
+            <!-- Stato PAUSED -->
+            <div id="timer-controls-paused" class="hidden space-y-2">
+              <div class="grid grid-cols-2 gap-2">
+                <button type="button" onclick="resumeFeedTimer()"
+                  class="btn-press py-3 rounded-2xl bg-avocado font-extrabold text-sm">
+                  ▶ Riprendi • Si è riattaccato
+                </button>
+                <button type="button" onclick="finishAndSaveTimer()"
+                  class="btn-press py-3 rounded-2xl bg-emerald-500/20 border border-emerald-400 text-emerald-300 font-extrabold text-sm">
+                  ✓ Finito, Salva poppata
+                </button>
+              </div>
+              <button type="button" onclick="resetFeedTimer()"
+                class="btn-press w-full py-2 rounded-xl app-card text-xs text-muted">
+                Annulla cronometro senza salvare
+              </button>
+            </div>
+          </div>
+
+          <!-- INSERIMENTO MANUALE POPPATA -->
+          <div class="border-t pt-3" style="border-color: var(--border-subtle);">
+            <button type="button" onclick="toggleManualFeed()" class="w-full text-left text-xs font-semibold text-avocado flex items-center justify-between">
+              <span>+ Poppata già fatta? Inserisci manualmente</span>
+              <span id="manual-feed-arrow">▼</span>
+            </button>
+            <div id="manual-feed-box" class="hidden mt-3 space-y-3">
+              <div class="grid grid-cols-2 gap-2.5">
+                <div>
+                  <label class="block text-[11px] text-muted mb-1">Orario poppata</label>
+                  <input type="time" id="manual-feed-time" class="w-full px-3 py-2 rounded-xl app-elevated text-sm font-bold" />
+                </div>
+                <div>
+                  <label class="block text-[11px] text-muted mb-1">Durata (minuti)</label>
+                  <input type="number" id="manual-feed-duration" value="20" min="1" max="180" class="w-full px-3 py-2 rounded-xl app-elevated text-sm font-bold" />
+                </div>
+              </div>
+              <button type="button" onclick="saveManualFeed()" class="btn-press w-full py-2.5 rounded-xl bg-avocado font-bold text-sm">
+                Salva poppata manuale
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- CARD PANNOLINO (1 TOCCO) -->
+        <section class="app-card rounded-3xl p-4 space-y-3">
+          <div class="flex items-center justify-between">
+            <h2 class="font-bold text-base flex items-center gap-2">🧷 Pannolino (1 tocco)</h2>
+            <div class="flex items-center gap-1.5">
+              <span class="text-[11px] text-muted">Ora:</span>
+              <input type="time" id="diaper-custom-time" class="px-2 py-1 rounded-lg app-elevated text-xs font-semibold" />
+            </div>
+          </div>
+          <div class="grid grid-cols-3 gap-2.5">
+            <button type="button" onclick="logDiaper('Pipì')"
+              class="btn-press py-4 px-2 rounded-2xl app-elevated hover:border-avocado flex flex-col items-center gap-1">
+              <span class="text-2xl">💧</span>
+              <span class="text-xs font-bold">Pipì</span>
+            </button>
+            <button type="button" onclick="logDiaper('Pupù')"
+              class="btn-press py-4 px-2 rounded-2xl app-elevated hover:border-avocado flex flex-col items-center gap-1">
+              <span class="text-2xl">💩</span>
+              <span class="text-xs font-bold">Pupù</span>
+            </button>
+            <button type="button" onclick="logDiaper('Pipì + Pupù')"
+              class="btn-press py-4 px-2 rounded-2xl app-elevated hover:border-avocado flex flex-col items-center gap-1">
+              <span class="text-2xl">💧+💩</span>
+              <span class="text-xs font-bold">Pipì + Pupù</span>
+            </button>
+          </div>
+        </section>
+      </div>
+
+      <!-- TAB 2: COCCOLE (TIMER 10 MIN) -->
+      <div id="tab-cuddles" class="hidden space-y-4">
+        <section class="app-card rounded-3xl p-6 text-center space-y-5">
+          <div>
+            <span class="text-4xl">🤗</span>
+            <h2 class="font-bold text-lg mt-2">Tempo Coccole &amp; Pelle a Pelle</h2>
+            <p class="text-xs text-muted mt-1">Timer rilassante preimpostato a 10 minuti</p>
+          </div>
+
+          <div class="flex justify-center gap-2">
+            <button type="button" onclick="setCuddleMinutes(5)" data-cuddle-min="5" class="cuddle-preset-btn btn-press px-3 py-1.5 rounded-xl border app-elevated text-xs font-bold">5 min</button>
+            <button type="button" onclick="setCuddleMinutes(10)" data-cuddle-min="10" class="cuddle-preset-btn btn-press px-3 py-1.5 rounded-xl border bg-avocado-soft border-avocado text-avocado text-xs font-bold">10 min</button>
+            <button type="button" onclick="setCuddleMinutes(15)" data-cuddle-min="15" class="cuddle-preset-btn btn-press px-3 py-1.5 rounded-xl border app-elevated text-xs font-bold">15 min</button>
+            <button type="button" onclick="setCuddleMinutes(20)" data-cuddle-min="20" class="cuddle-preset-btn btn-press px-3 py-1.5 rounded-xl border app-elevated text-xs font-bold">20 min</button>
+          </div>
+
+          <div id="cuddle-display" class="text-5xl font-mono font-extrabold text-avocado py-2">10:00</div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <button type="button" onclick="toggleCuddleTimer()" id="btn-cuddle-toggle"
+              class="btn-press py-3.5 rounded-2xl bg-avocado font-extrabold text-sm">
+              ▶ Avvia Coccole
+            </button>
+            <button type="button" onclick="resetCuddleTimer()"
+              class="btn-press py-3.5 rounded-2xl app-elevated font-bold text-sm">
+              ↺ Azzera
+            </button>
+          </div>
+        </section>
+      </div>
+
+      <!-- TAB 3: VISITE & PROMEMORIA -->
+      <div id="tab-visits" class="hidden space-y-4">
+        <section class="app-card rounded-3xl p-4 space-y-3">
+          <h2 class="font-bold text-base">🩺 Nuova Visita o Promemoria</h2>
+          <form id="form-new-visit" class="space-y-3">
+            <input type="text" id="visit-title" required placeholder="Es. Controllo Pediatra / Vaccino"
+              class="w-full px-3.5 py-2.5 rounded-xl app-elevated text-sm font-medium focus:outline-none focus:border-avocado" />
+            <div class="grid grid-cols-2 gap-2.5">
+              <input type="date" id="visit-date" required class="w-full px-3 py-2.5 rounded-xl app-elevated text-sm font-semibold" />
+              <input type="time" id="visit-time" required value="10:00" class="w-full px-3 py-2.5 rounded-xl app-elevated text-sm font-semibold" />
+            </div>
+            <input type="text" id="visit-notes" placeholder="Note facoltative (es. portare libretto)"
+              class="w-full px-3.5 py-2.5 rounded-xl app-elevated text-sm focus:outline-none focus:border-avocado" />
+            <button type="submit" class="btn-press w-full py-3 rounded-2xl bg-avocado font-extrabold text-sm">
+              + Salva Visita (App + Calendario)
+            </button>
+          </form>
+        </section>
+
+        <section class="app-card rounded-3xl p-4 space-y-3">
+          <h3 class="font-bold text-sm text-muted">Prossime Visite</h3>
+          <div id="visits-list" class="space-y-2"></div>
+        </section>
+      </div>
+    </div>
+
+    <!-- RIEPILOGO VISITE IN SOLA LETTURA (Visibile ai Nonni) -->
+    <section id="readonly-visits-section" class="hidden app-card rounded-3xl p-4 space-y-2.5">
+      <h2 class="font-bold text-base flex items-center gap-2">🩺 Prossimi Appuntamenti di Francy</h2>
+      <div id="readonly-visits-list" class="space-y-2"></div>
+    </section>
+
+    <!-- STORICO REGISTRAZIONI DI OGGI (Sempre visibile) -->
+    <section class="app-card rounded-3xl p-4 space-y-3">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="font-bold text-base">Ultime registrazioni di oggi</h2>
+          <p id="today-summary-text" class="text-xs text-muted">0 poppate • 0 pannolini</p>
+        </div>
+        <span id="today-events-count" class="text-xs font-semibold px-2.5 py-1 rounded-full app-elevated">0 eventi</span>
+      </div>
+
+      <div id="today-events-list" class="space-y-2.5"></div>
+    </section>
+
+  </main>
+
+  <!-- BOTTOM NAVIGATION (Nascosta in modalità Nonni) -->
+  <nav id="bottom-nav" class="fixed bottom-0 inset-x-0 z-30 border-t" style="background-color: var(--bg-main); border-color: var(--border-subtle);">
+    <div class="max-w-lg mx-auto grid grid-cols-3 py-2 px-3 gap-2">
+      <button type="button" onclick="switchTab('daily')" id="nav-daily"
+        class="btn-press py-2 rounded-2xl bg-avocado-soft text-avocado font-bold text-xs flex flex-col items-center gap-0.5">
+        <span class="text-base">🍼</span>
+        <span>Diario</span>
+      </button>
+      <button type="button" onclick="switchTab('cuddles')" id="nav-cuddles"
+        class="btn-press py-2 rounded-2xl text-muted font-bold text-xs flex flex-col items-center gap-0.5">
+        <span class="text-base">🤗</span>
+        <span>Coccole</span>
+      </button>
+      <button type="button" onclick="switchTab('visits')" id="nav-visits"
+        class="btn-press py-2 rounded-2xl text-muted font-bold text-xs flex flex-col items-center gap-0.5">
+        <span class="text-base">🩺</span>
+        <span>Visite</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- MODALE 1: BACHECA NONNI & SYNC FAMIGLIA -->
+  <div id="modal-nonni" class="hidden fixed inset-0 z-50 bg-black/75 flex items-end sm:items-center justify-center p-4">
+    <div class="app-card w-full max-w-md rounded-3xl p-5 space-y-4 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between">
+        <h3 class="font-bold text-lg">👴👵 Nonni &amp; Sincronizzazione</h3>
+        <button onclick="closeModal('modal-nonni')" class="px-3 py-1 rounded-xl app-elevated text-sm font-bold">✕</button>
+      </div>
+
+      <div class="app-elevated rounded-2xl p-3.5 space-y-2">
+        <label class="block text-xs font-bold text-avocado">🔑 Codice Famiglia (Mamma &amp; Papà)</label>
+        <p class="text-[11px] text-muted">Inserisci lo stesso codice sui telefoni di mamma e papà per sincronizzare tutto in tempo reale.</p>
+        <div class="flex gap-2">
+          <input type="text" id="input-family-code" value="FRANCY-2026"
+            class="flex-1 px-3 py-2 rounded-xl app-card font-mono font-bold text-sm uppercase" />
+          <button type="button" onclick="saveFamilySettings()" class="btn-press px-4 py-2 rounded-xl bg-avocado font-bold text-xs">
+            Applica
+          </button>
+        </div>
+      </div>
+
+      <div class="app-elevated rounded-2xl p-3.5 space-y-2.5">
+        <label class="block text-xs font-bold text-avocado">🌐 Link Pubblico Sola Lettura (GitHub Pages)</label>
+        <p class="text-[11px] text-muted">Incolla qui l'indirizzo della tua pagina GitHub Pages: il link generato per i nonni resterà valido per sempre senza possibilità di modifica.</p>
+        <input type="url" id="input-public-url" placeholder="https://tuoutente.github.io/diario-francy/"
+          onchange="saveFamilySettings()"
+          class="w-full px-3 py-2 rounded-xl app-card text-xs" />
+        <button type="button" onclick="copyNonniLink()" class="btn-press w-full py-3 rounded-xl bg-avocado font-extrabold text-xs">
+          📋 Copia Link Sola Lettura per Nonni &amp; Amici
+        </button>
+      </div>
+
+      <button type="button" onclick="enterReadOnlyPreview()" class="btn-press w-full py-3 rounded-2xl app-elevated font-bold text-xs">
+        👁️ Attiva Vista Sola Lettura su questo schermo
+      </button>
+    </div>
+  </div>
+
+  <!-- MODALE 2: CALENDARIO DEDICATO MAMMA & PAPÀ -->
+  <div id="modal-calendar" class="hidden fixed inset-0 z-50 bg-black/75 flex items-end sm:items-center justify-center p-4">
+    <div class="app-card w-full max-w-md rounded-3xl p-5 space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="font-bold text-lg">📅 Calendario "Diario Francy"</h3>
+        <button onclick="closeModal('modal-calendar')" class="px-3 py-1 rounded-xl app-elevated text-sm font-bold">✕</button>
+      </div>
+      <p class="text-xs text-muted leading-relaxed">
+        Collega l'app Android al calendario Google <strong>"Diario Francy"</strong> per registrare automaticamente poppate, pannolini e visite anche sul calendario condiviso.
+      </p>
+      <div id="calendar-status-box" class="app-elevated rounded-2xl p-3 text-xs font-semibold">
+        Stato: <span id="calendar-status-label" class="text-avocado">Non ancora collegato</span>
+      </div>
+      <button type="button" onclick="connectDedicatedCalendar()" class="btn-press w-full py-3 rounded-2xl bg-avocado font-extrabold text-sm">
+        🔗 Collega / Crea calendario "Diario Francy"
+      </button>
+      <button type="button" onclick="syncAllHistoryToCalendar()" class="btn-press w-full py-3 rounded-2xl app-elevated font-bold text-xs">
+        🔄 Invia anche lo storico già salvato al Calendario
+      </button>
+    </div>
+  </div>
+
+  <!-- MODALE 3: BACKUP, RIPRISTINO & EXCEL -->
+  <div id="modal-data" class="hidden fixed inset-0 z-50 bg-black/75 flex items-end sm:items-center justify-center p-4">
+    <div class="app-card w-full max-w-md rounded-3xl p-5 space-y-3">
+      <div class="flex items-center justify-between">
+        <h3 class="font-bold text-lg">🗄️ Dati &amp; Esportazione</h3>
+        <button onclick="closeModal('modal-data')" class="px-3 py-1 rounded-xl app-elevated text-sm font-bold">✕</button>
+      </div>
+
+      <button type="button" onclick="forceCloudSync()" class="btn-press w-full py-3 rounded-2xl bg-avocado-soft border border-avocado text-avocado font-bold text-sm">
+        ☁️ Forza Sincronizzazione Cloud Ora
+      </button>
+
+      <button type="button" onclick="exportExcel()" class="btn-press w-full py-3 rounded-2xl bg-avocado font-extrabold text-sm">
+        📊 Esporta Diario Completo in Excel (.xlsx)
+      </button>
+
+      <button type="button" onclick="exportJSON()" class="btn-press w-full py-3 rounded-2xl app-elevated font-bold text-sm">
+        💾 Esporta Backup JSON
+      </button>
+
+      <label class="btn-press block w-full py-3 rounded-2xl app-elevated font-bold text-sm text-center cursor-pointer">
+        📂 Ripristina Backup JSON
+        <input type="file" accept=".json" onchange="importJSON(event)" class="hidden" />
+      </label>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICA -->
+  <div id="toast" class="hidden fixed top-16 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-2xl bg-avocado font-bold text-xs shadow-xl"></div>
+
+  <script>
+    // ==========================================
+    // 1. CONFIGURAZIONE FIREBASE (PROGETTO DIARIO FRANCY)
+    // ==========================================
+    const firebaseConfig = {
+      apiKey: "AIzaSyA1eZxPz2acqbhuQmsJpEnt6aZJb9zRc-Y",
+      authDomain: "diario-francy.firebaseapp.com",
+      projectId: "diario-francy",
+      storageBucket: "diario-francy.firebasestorage.app",
+      messagingSenderId: "249907383644",
+      appId: "1:249907383644:web:4fcfe68409baab1337c599"
+    };
+
+    let db = null;
+    let unsubscribeSnapshot = null;
+    try {
+      if (typeof firebase !== "undefined") {
+        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+        db = firebase.firestore();
+      }
+    } catch (e) {
+      console.warn("Firebase init offline:", e);
+    }
+
+    // ==========================================
+    // 2. STATO GLOBALE & PERSISTENZA LOCALE
+    // ==========================================
+    const STORAGE_KEY = "diario_francy_state_v3";
+    const LEGACY_KEYS = ["diario_francy_state_v2", "diario_francy_state_v1", "diario_francy_state"];
+    const urlParams = new URLSearchParams(window.location.search);
+    const isUrlReadOnly = urlParams.get("view") === "nonni";
+    const urlFamilyCode = urlParams.get("family");
+
+    let state = {
+      theme: "dark",
+      familyCode: (urlFamilyCode || "FRANCY-2026").toUpperCase(),
+      publicUrl: "",
+      calendarId: null,
+      readOnlyScreen: isUrlReadOnly,
+      feedings: [],
+      diapers: [],
+      visits: [],
+      deletedIds: [],
+      timer: {
+        status: "idle", // 'idle' | 'running' | 'paused'
+        startTimestamp: null,
+        pausedAtTimestamp: null,
+        accumulatedMs: 0,
+        feedType: "Seno",
+        breastSide: "Sx",
+        milkMl: 60
+      }
+    };
+
+    let cuddleTimer = {
+      remainingSec: 600,
+      selectedMin: 10,
+      interval: null,
+      running: false
+    };
+
+    function loadLocalState() {
+      try {
+        let raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) {
+          for (const legacyKey of LEGACY_KEYS) {
+            const legacyRaw = localStorage.getItem(legacyKey);
+            if (legacyRaw) {
+              raw = legacyRaw;
+              break;
+            }
+          }
+        }
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          state = {
+            ...state,
+            ...parsed,
+            timer: { ...state.timer, ...(parsed.timer || {}) },
+            deletedIds: parsed.deletedIds || []
+          };
+        }
+        if (urlFamilyCode) {
+          state.familyCode = urlFamilyCode.toUpperCase();
+        }
+        if (isUrlReadOnly) {
+          state.readOnlyScreen = true;
+        }
+        if (!state.publicUrl && window.location.protocol.startsWith("http") && !window.location.hostname.includes("localhost")) {
+          state.publicUrl = (window.location.origin + window.location.pathname).replace(/\/index\.html$/, "/");
+        }
+      } catch (e) {
+        console.error("Errore caricamento stato:", e);
+      }
+    }
+
+    function saveLocalState() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      } catch (e) {
+        console.error("Errore salvataggio locale:", e);
+      }
+    }
+
+    // ==========================================
+    // 3. SINCRONIZZAZIONE CLOUD FIRESTORE (2 VIE)
+    // ==========================================
+    function setSyncBadge(status, text) {
+      const badge = document.getElementById("sync-badge");
+      if (!badge) return;
+      badge.textContent = text;
+      badge.className = "text-[11px] font-semibold px-2 py-0.5 rounded-full ";
+      if (status === "ok") badge.className += "bg-avocado-soft text-avocado";
+      else if (status === "syncing") badge.className += "bg-amber-500/20 text-amber-300";
+      else badge.className += "bg-red-500/20 text-red-300";
+    }
+
+    function mergeById(localArr, remoteArr, deletedSet) {
+      const map = new Map();
+      [...(remoteArr || []), ...(localArr || [])].forEach(item => {
+        if (!item || !item.id || deletedSet.has(item.id)) return;
+        const existing = map.get(item.id);
+        if (!existing || (item.updatedAt || 0) >= (existing.updatedAt || 0)) {
+          map.set(item.id, item);
+        }
+      });
+      return Array.from(map.values()).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+    }
+
+    async function pushToCloud() {
+      if (!db || state.readOnlyScreen) return;
+      const code = (state.familyCode || "FRANCY-2026").trim().toUpperCase();
+      if (code.length < 6) return;
+
+      setSyncBadge("syncing", "↻ Sync...");
+      try {
+        await db.collection("diario_francy").doc(code).set({
+          familyCode: code,
+          publicUrl: state.publicUrl || "",
+          feedings: state.feedings,
+          diapers: state.diapers,
+          visits: state.visits,
+          deletedIds: state.deletedIds.slice(-200),
+          updatedAt: Date.now()
+        }, { merge: true });
+        setSyncBadge("ok", "● Sync Live");
+      } catch (err) {
+        console.warn("Errore invio cloud:", err);
+        setSyncBadge("offline", "● Offline");
+      }
+    }
+
+    function startCloudListener() {
+      if (!db) {
+        setSyncBadge("offline", "● Offline");
+        return;
+      }
+      if (unsubscribeSnapshot) unsubscribeSnapshot();
+
+      const code = (state.familyCode || "FRANCY-2026").trim().toUpperCase();
+      if (code.length < 6) return;
+
+      setSyncBadge("syncing", "↻ Connessione...");
+      unsubscribeSnapshot = db.collection("diario_francy").doc(code).onSnapshot(
+        (doc) => {
+          if (!doc.exists) {
+            if (!state.readOnlyScreen && (state.feedings.length || state.diapers.length || state.visits.length)) {
+              pushToCloud();
+            } else {
+              setSyncBadge("ok", "● Pronto");
+            }
+            return;
+          }
+          const data = doc.data();
+          const deletedSet = new Set([...(state.deletedIds || []), ...(data.deletedIds || [])]);
+          state.deletedIds = Array.from(deletedSet).slice(-200);
+
+          const prevFeedLen = state.feedings.length;
+          const prevDiaperLen = state.diapers.length;
+
+          state.feedings = mergeById(state.feedings, data.feedings, deletedSet);
+          state.diapers = mergeById(state.diapers, data.diapers, deletedSet);
+          state.visits = mergeById(state.visits, data.visits, deletedSet);
+          if (data.publicUrl && !state.publicUrl) state.publicUrl = data.publicUrl;
+
+          autoSelectNextBreastSide();
+          saveLocalState();
+          renderAll();
+          setSyncBadge("ok", state.readOnlyScreen ? "● Live Nonni" : "● Sync Live");
+
+          if (!state.readOnlyScreen && (prevFeedLen > (data.feedings || []).length || prevDiaperLen > (data.diapers || []).length)) {
+            pushToCloud();
+          }
+        },
+        (err) => {
+          console.warn("Listener offline:", err);
+          setSyncBadge("offline", "● Offline");
+        }
+      );
+    }
+
+    function forceCloudSync() {
+      pushToCloud();
+      showToast("Sincronizzazione cloud avviata!");
+    }
+
+    // ==========================================
+    // 4. LOGICA POPPATE, LATO SX/DX & CRONOMETRO
+    // ==========================================
+    function assignAlternatingSidesIfMissing(feedingsList) {
+      const sorted = [...feedingsList].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+      let nextSide = "Dx";
+      let modified = false;
+      sorted.forEach(f => {
+        if (f.feedType === "Seno") {
+          if (!f.breastSide) {
+            f.breastSide = nextSide;
+            modified = true;
+          }
+          nextSide = f.breastSide === "Dx" ? "Sx" : "Dx";
+        }
+      });
+      return { list: sorted, modified };
+    }
+
+    function getSuggestedBreastSide() {
+      const lastBreast = state.feedings.find(f => f.feedType === "Seno" && f.breastSide);
+      if (!lastBreast) return "Sx";
+      return lastBreast.breastSide === "Sx" ? "Dx" : "Sx";
+    }
+
+    function autoSelectNextBreastSide() {
+      if (state.timer.status === "idle") {
+        state.timer.breastSide = getSuggestedBreastSide();
+      }
+    }
+
+    function selectFeedType(type) {
+      state.timer.feedType = type;
+      saveLocalState();
+      updateTimerUI();
+    }
+
+    function selectBreastSide(side) {
+      state.timer.breastSide = side;
+      saveLocalState();
+      updateTimerUI();
+    }
+
+    function setMilkMl(ml) {
+      state.timer.milkMl = ml;
+      const inp = document.getElementById("input-milk-ml");
+      if (inp) inp.value = ml;
+      saveLocalState();
+    }
+
+    function getCurrentTimerElapsedMs() {
+      if (state.timer.status === "running" && state.timer.startTimestamp) {
+        return state.timer.accumulatedMs + Math.max(0, Date.now() - state.timer.startTimestamp);
+      }
+      return state.timer.accumulatedMs || 0;
+    }
+
+    function getCurrentPauseElapsedMs() {
+      if (state.timer.status === "paused" && state.timer.pausedAtTimestamp) {
+        return Math.max(0, Date.now() - state.timer.pausedAtTimestamp);
+      }
+      return 0;
+    }
+
+    function formatMMSS(ms) {
+      const totalSec = Math.floor(ms / 1000);
+      const mins = Math.floor(totalSec / 60);
+      const secs = totalSec % 60;
+      return String(mins).padStart(2, "0") + ":" + String(secs).padStart(2, "0");
+    }
+
+    function startFeedTimer() {
+      state.timer.status = "running";
+      state.timer.startTimestamp = Date.now();
+      state.timer.pausedAtTimestamp = null;
+      saveLocalState();
+      updateTimerUI();
+    }
+
+    function pauseFeedTimer() {
+      if (state.timer.status !== "running") return;
+      state.timer.accumulatedMs = getCurrentTimerElapsedMs();
+      state.timer.startTimestamp = null;
+      state.timer.pausedAtTimestamp = Date.now();
+      state.timer.status = "paused";
+      saveLocalState();
+      updateTimerUI();
+    }
+
+    function resumeFeedTimer() {
+      if (state.timer.status !== "paused") return;
+      state.timer.startTimestamp = Date.now();
+      state.timer.pausedAtTimestamp = null;
+      state.timer.status = "running";
+      saveLocalState();
+      updateTimerUI();
+    }
+
+    function resetFeedTimer() {
+      state.timer.status = "idle";
+      state.timer.startTimestamp = null;
+      state.timer.pausedAtTimestamp = null;
+      state.timer.accumulatedMs = 0;
+      saveLocalState();
+      updateTimerUI();
+    }
+
+    function finishAndSaveTimer() {
+      const elapsedMs = getCurrentTimerElapsedMs();
+      const durationMin = Math.max(1, Math.round(elapsedMs / 60000));
+      const mlInput = document.getElementById("input-milk-ml");
+      const mlVal = mlInput ? parseInt(mlInput.value, 10) || 60 : state.timer.milkMl;
+
+      const entry = {
+        id: "feed_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6),
+        timestamp: Date.now(),
+        updatedAt: Date.now(),
+        feedType: state.timer.feedType,
+        breastSide: state.timer.feedType === "Seno" ? state.timer.breastSide : null,
+        milkMl: state.timer.feedType !== "Seno" ? mlVal : null,
+        durationMin
+      };
+
+      state.feedings.unshift(entry);
+      resetFeedTimer();
+      autoSelectNextBreastSide();
+      saveLocalState();
+      renderAll();
+      pushToCloud();
+      syncEventToDedicatedCalendar(
+        entry.feedType === "Seno" ? `🍼 Poppata Seno (${entry.breastSide})` : `🍼 Poppata ${entry.feedType} (${entry.milkMl} ml)`,
+        `Durata: ${entry.durationMin} min`,
+        entry.timestamp,
+        entry.durationMin
+      );
+      showToast("Poppata salvata!");
+    }
+
+    function toggleManualFeed() {
+      const box = document.getElementById("manual-feed-box");
+      const arrow = document.getElementById("manual-feed-arrow");
+      const isHidden = box.classList.toggle("hidden");
+      arrow.textContent = isHidden ? "▼" : "▲";
+      if (!isHidden) {
+        const now = new Date();
+        document.getElementById("manual-feed-time").value =
+          String(now.getHours()).padStart(2, "0") + ":" + String(now.getMinutes()).padStart(2, "0");
+      }
+    }
+
+    function saveManualFeed() {
+      const timeVal = document.getElementById("manual-feed-time").value;
+      const durVal = parseInt(document.getElementById("manual-feed-duration").value, 10) || 15;
+      const mlInput = document.getElementById("input-milk-ml");
+      const mlVal = mlInput ? parseInt(mlInput.value, 10) || 60 : 60;
+
+      const ts = parseTimeTodayToTimestamp(timeVal);
+      const entry = {
+        id: "feed_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6),
+        timestamp: ts,
+        updatedAt: Date.now(),
+        feedType: state.timer.feedType,
+        breastSide: state.timer.feedType === "Seno" ? state.timer.breastSide : null,
+        milkMl: state.timer.feedType !== "Seno" ? mlVal : null,
+        durationMin: durVal
+      };
+
+      state.feedings.unshift(entry);
+      state.feedings.sort((a, b) => b.timestamp - a.timestamp);
+      autoSelectNextBreastSide();
+      saveLocalState();
+      renderAll();
+      pushToCloud();
+      syncEventToDedicatedCalendar(
+        entry.feedType === "Seno" ? `🍼 Poppata Seno (${entry.breastSide})` : `🍼 Poppata ${entry.feedType} (${entry.milkMl} ml)`,
+        `Durata: ${entry.durationMin} min`,
+        entry.timestamp,
+        entry.durationMin
+      );
+      toggleManualFeed();
+      showToast("Poppata manuale registrata!");
+    }
+
+    function toggleFeedingSide(id) {
+      if (state.readOnlyScreen) return;
+      const item = state.feedings.find(f => f.id === id);
+      if (!item || item.feedType !== "Seno") return;
+      item.breastSide = item.breastSide === "Dx" ? "Sx" : "Dx";
+      item.updatedAt = Date.now();
+      autoSelectNextBreastSide();
+      saveLocalState();
+      renderAll();
+      pushToCloud();
+      showToast(`Lato aggiornato a ${item.breastSide}`);
+    }
+
+    // ==========================================
+    // 5. PANNOLINI, COCCOLE E VISITE
+    // ==========================================
+    function logDiaper(type) {
+      const customTime = document.getElementById("diaper-custom-time").value;
+      const ts = customTime ? parseTimeTodayToTimestamp(customTime) : Date.now();
+      document.getElementById("diaper-custom-time").value = "";
+
+      const entry = {
+        id: "diaper_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6),
+        timestamp: ts,
+        updatedAt: Date.now(),
+        type
+      };
+
+      state.diapers.unshift(entry);
+      state.diapers.sort((a, b) => b.timestamp - a.timestamp);
+      saveLocalState();
+      renderAll();
+      pushToCloud();
+      syncEventToDedicatedCalendar(`🧷 Pannolino: ${type}`, "Registrato su Diario Francy", entry.timestamp, 10);
+      showToast(`Pannolino (${type}) salvato!`);
+    }
+
+    function deleteEvent(kind, id) {
+      if (state.readOnlyScreen) return;
+      state.deletedIds.push(id);
+      if (kind === "feed") state.feedings = state.feedings.filter(x => x.id !== id);
+      if (kind === "diaper") state.diapers = state.diapers.filter(x => x.id !== id);
+      if (kind === "visit") state.visits = state.visits.filter(x => x.id !== id);
+      autoSelectNextBreastSide();
+      saveLocalState();
+      renderAll();
+      pushToCloud();
+      showToast("Registrazione rimossa");
+    }
+
+    // Timer Coccole
+    function setCuddleMinutes(min) {
+      clearInterval(cuddleTimer.interval);
+      cuddleTimer.running = false;
+      cuddleTimer.selectedMin = min;
+      cuddleTimer.remainingSec = min * 60;
+      document.querySelectorAll(".cuddle-preset-btn").forEach(btn => {
+        const isSel = parseInt(btn.getAttribute("data-cuddle-min"), 10) === min;
+        if (isSel) {
+          btn.classList.add("bg-avocado-soft", "border-avocado", "text-avocado");
+          btn.classList.remove("app-elevated");
+        } else {
+          btn.classList.remove("bg-avocado-soft", "border-avocado", "text-avocado");
+          btn.classList.add("app-elevated");
+        }
+      });
+      updateCuddleUI();
+    }
+
+    function toggleCuddleTimer() {
+      if (cuddleTimer.running) {
+        clearInterval(cuddleTimer.interval);
+        cuddleTimer.running = false;
+      } else {
+        cuddleTimer.running = true;
+        cuddleTimer.interval = setInterval(() => {
+          if (cuddleTimer.remainingSec > 0) {
+            cuddleTimer.remainingSec--;
+            updateCuddleUI();
+          } else {
+            clearInterval(cuddleTimer.interval);
+            cuddleTimer.running = false;
+            updateCuddleUI();
+            showToast(`🥑 ${cuddleTimer.selectedMin} minuti di coccole completati!`);
+          }
+        }, 1000);
+      }
+      updateCuddleUI();
+    }
+
+    function resetCuddleTimer() {
+      setCuddleMinutes(cuddleTimer.selectedMin || 10);
+    }
+
+    function updateCuddleUI() {
+      const disp = document.getElementById("cuddle-display");
+      const btn = document.getElementById("btn-cuddle-toggle");
+      if (!disp || !btn) return;
+      const m = Math.floor(cuddleTimer.remainingSec / 60);
+      const s = cuddleTimer.remainingSec % 60;
+      disp.textContent = String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
+      btn.textContent = cuddleTimer.running ? "⏸ Pausa Coccole" : "▶ Avvia Coccole";
+    }
+
+    // Visite
+    document.getElementById("form-new-visit").addEventListener("submit", function (e) {
+      e.preventDefault();
+      const title = document.getElementById("visit-title").value.trim();
+      const dateStr = document.getElementById("visit-date").value;
+      const timeStr = document.getElementById("visit-time").value || "10:00";
+      const notes = document.getElementById("visit-notes").value.trim();
+      if (!title || !dateStr) return;
+
+      const ts = new Date(`${dateStr}T${timeStr}:00`).getTime();
+      const visit = {
+        id: "visit_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6),
+        title,
+        dateStr,
+        timeStr,
+        notes,
+        timestamp: ts,
+        updatedAt: Date.now()
+      };
+
+      state.visits.push(visit);
+      state.visits.sort((a, b) => a.timestamp - b.timestamp);
+      saveLocalState();
+      renderAll();
+      pushToCloud();
+      syncEventToDedicatedCalendar(`🩺 ${title}`, notes || "Visita Francy", ts, 45);
+      e.target.reset();
+      showToast("Visita salvata!");
+    });
+
+    // ==========================================
+    // 6. CALENDARIO NATIVO ANDROID (CAPACITOR)
+    // ==========================================
+    function getCalendarPlugin() {
+      return window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.CapacitorCalendar;
+    }
+
+    async function connectDedicatedCalendar() {
+      const plugin = getCalendarPlugin();
+      if (!plugin) {
+        showToast("Disponibile sull'app Android installata");
+        return;
+      }
+      try {
+        await plugin.requestFullCalendarAccess();
+        const res = await plugin.listCalendars();
+        const calendars = res.result || res.calendars || [];
+        let target = calendars.find(c => (c.title || c.name) === "Diario Francy");
+        if (!target && plugin.createCalendar) {
+          const created = await plugin.createCalendar({ title: "Diario Francy", color: "#68942E" });
+          target = created.result || created;
+        }
+        if (target && target.id) {
+          state.calendarId = target.id;
+          saveLocalState();
+          document.getElementById("calendar-status-label").textContent = "Collegato a Diario Francy ✓";
+          showToast("Calendario Diario Francy collegato!");
+        }
+      } catch (err) {
+        console.error(err);
+        showToast("Concedi i permessi Calendario nelle impostazioni");
+      }
+    }
+
+    async function syncEventToDedicatedCalendar(title, description, startTimestamp, durationMinutes) {
+      const plugin = getCalendarPlugin();
+      if (!plugin || !state.calendarId) return;
+      try {
+        await plugin.createEvent({
+          title,
+          description,
+          calendarId: state.calendarId,
+          startDate: startTimestamp,
+          endDate: startTimestamp + (durationMinutes || 15) * 60000
+        });
+      } catch (e) {
+        console.warn("Sync evento calendario:", e);
+      }
+    }
+
+    async function syncAllHistoryToCalendar() {
+      const plugin = getCalendarPlugin();
+      if (!plugin) {
+        showToast("Disponibile sull'app Android");
+        return;
+      }
+      if (!state.calendarId) await connectDedicatedCalendar();
+      if (!state.calendarId) return;
+
+      let count = 0;
+      for (const f of state.feedings.slice(0, 30)) {
+        const title = f.feedType === "Seno" ? `🍼 Poppata Seno (${f.breastSide || "Sx"})` : `🍼 Poppata ${f.feedType} (${f.milkMl || 0} ml)`;
+        await syncEventToDedicatedCalendar(title, `Durata: ${f.durationMin} min`, f.timestamp, f.durationMin);
+        count++;
+      }
+      for (const d of state.diapers.slice(0, 30)) {
+        await syncEventToDedicatedCalendar(`🧷 Pannolino: ${d.type}`, "Diario Francy", d.timestamp, 10);
+        count++;
+      }
+      showToast(`${count} eventi inviati al Calendario!`);
+    }
+
+    // ==========================================
+    // 7. NONNI, BACKUP JSON & EXPORT EXCEL
+    // ==========================================
+    function saveFamilySettings() {
+      const codeInput = document.getElementById("input-family-code").value.trim().toUpperCase();
+      const urlInput = document.getElementById("input-public-url").value.trim();
+      if (codeInput.length >= 6) {
+        state.familyCode = codeInput;
+      } else {
+        showToast("Il codice deve avere almeno 6 caratteri");
+        return;
+      }
+      state.publicUrl = urlInput;
+      saveLocalState();
+      startCloudListener();
+      pushToCloud();
+      showToast("Impostazioni famiglia salvate!");
+    }
+
+    function copyNonniLink() {
+      saveFamilySettings();
+      let base = (state.publicUrl || (window.location.origin + window.location.pathname))
+        .replace(/\/index\.html$/, "")
+        .replace(/\/$/, "");
+
+      if (base.includes("localhost")) {
+        showToast("Incolla prima l'indirizzo GitHub Pages qui sopra!");
+        return;
+      }
+
+      const link = `${base}/?view=nonni&family=${encodeURIComponent(state.familyCode)}`;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(link)
+          .then(() => showToast("Link sola lettura copiato!"))
+          .catch(() => prompt("Copia questo link per nonni e amici:", link));
+      } else {
+        prompt("Copia questo link per nonni e amici:", link);
+      }
+    }
+
+    function enterReadOnlyPreview() {
+      state.readOnlyScreen = true;
+      closeModal("modal-nonni");
+      renderAll();
+    }
+
+    function exitReadOnlyPreview() {
+      if (isUrlReadOnly) {
+        window.location.href = window.location.pathname;
+        return;
+      }
+      state.readOnlyScreen = false;
+      renderAll();
+    }
+
+    function exportJSON() {
+      const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `diario-francy-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      showToast("Backup JSON scaricato!");
+    }
+
+    function importJSON(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        try {
+          const imported = JSON.parse(e.target.result);
+          const { list } = assignAlternatingSidesIfMissing(imported.feedings || []);
+          state.feedings = list;
+          state.diapers = imported.diapers || [];
+          state.visits = imported.visits || [];
+          autoSelectNextBreastSide();
+          saveLocalState();
+          renderAll();
+          pushToCloud();
+          closeModal("modal-data");
+          showToast("Backup caricato con lati Sx/Dx!");
+        } catch (err) {
+          showToast("File JSON non valido");
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function exportExcel() {
+      if (typeof XLSX === "undefined") {
+        showToast("Libreria Excel non disponibile offline");
+        return;
+      }
+      const rows = [
+        ...state.feedings.map(f => ({
+          Data: new Date(f.timestamp).toLocaleDateString("it-IT"),
+          Ora: formatHHMM(f.timestamp),
+          Categoria: "Poppata",
+          Dettaglio: f.feedType === "Seno" ? `Seno (${f.breastSide || "Sx"})` : `${f.feedType} (${f.milkMl || 0} ml)`,
+          Durata_Min: f.durationMin || ""
+        })),
+        ...state.diapers.map(d => ({
+          Data: new Date(d.timestamp).toLocaleDateString("it-IT"),
+          Ora: formatHHMM(d.timestamp),
+          Categoria: "Pannolino",
+          Dettaglio: d.type,
+          Durata_Min: ""
+        }))
+      ];
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Diario Francy");
+      XLSX.writeFile(wb, `Diario_Francy_${new Date().toISOString().slice(0, 10)}.xlsx`);
+      showToast("File Excel scaricato!");
+    }
+
+    // ==========================================
+    // 8. RENDERING INTERFACCIA & UTILITY
+    // ==========================================
+    function formatHHMM(ts) {
+      const d = new Date(ts);
+      return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+    }
+
+    function formatTimeAgo(ts) {
+      const diffMin = Math.max(0, Math.floor((Date.now() - ts) / 60000));
+      if (diffMin < 1) return "Adesso";
+      if (diffMin < 60) return `${diffMin} min fa`;
+      const h = Math.floor(diffMin / 60);
+      const m = diffMin % 60;
+      return `${h}h ${m}m fa`;
+    }
+
+    function isToday(ts) {
+      const d = new Date(ts);
+      const now = new Date();
+      return d.getDate() === now.getDate() && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    }
+
+    function parseTimeTodayToTimestamp(hhmm) {
+      if (!hhmm) return Date.now();
+      const [h, m] = hhmm.split(":").map(Number);
+      const d = new Date();
+      d.setHours(h || 0, m || 0, 0, 0);
+      return d.getTime();
+    }
+
+    function updateTimerUI() {
+      document.querySelectorAll(".feed-type-btn").forEach(btn => {
+        const selected = btn.getAttribute("data-feed-type") === state.timer.feedType;
+        if (selected) {
+          btn.classList.add("bg-avocado-soft", "border-avocado", "text-avocado");
+          btn.classList.remove("app-elevated");
+        } else {
+          btn.classList.remove("bg-avocado-soft", "border-avocado", "text-avocado");
+          btn.classList.add("app-elevated");
+        }
+      });
+
+      const sideBox = document.getElementById("breast-side-box");
+      const mlBox = document.getElementById("milk-ml-box");
+      if (state.timer.feedType === "Seno") {
+        sideBox.classList.remove("hidden");
+        mlBox.classList.add("hidden");
+      } else {
+        sideBox.classList.add("hidden");
+        mlBox.classList.remove("hidden");
+      }
+
+      const btnSx = document.getElementById("btn-side-sx");
+      const btnDx = document.getElementById("btn-side-dx");
+      if (state.timer.breastSide === "Sx") {
+        btnSx.className = "btn-press py-3 px-3 rounded-2xl border font-bold text-sm flex items-center justify-center gap-2 bg-avocado-soft border-avocado text-avocado";
+        btnDx.className = "btn-press py-3 px-3 rounded-2xl border font-bold text-sm flex items-center justify-center gap-2 app-elevated";
+      } else {
+        btnDx.className = "btn-press py-3 px-3 rounded-2xl border font-bold text-sm flex items-center justify-center gap-2 bg-avocado-soft border-avocado text-avocado";
+        btnSx.className = "btn-press py-3 px-3 rounded-2xl border font-bold text-sm flex items-center justify-center gap-2 app-elevated";
+      }
+
+      document.getElementById("timer-display").textContent = formatMMSS(getCurrentTimerElapsedMs());
+      const pauseInd = document.getElementById("timer-pause-indicator");
+      const statusTxt = document.getElementById("timer-status-text");
+
+      document.getElementById("timer-controls-idle").classList.toggle("hidden", state.timer.status !== "idle");
+      document.getElementById("timer-controls-running").classList.toggle("hidden", state.timer.status !== "running");
+      document.getElementById("timer-controls-paused").classList.toggle("hidden", state.timer.status !== "paused");
+
+      if (state.timer.status === "running") {
+        statusTxt.textContent = state.timer.feedType === "Seno"
+          ? `Poppata al seno (${state.timer.breastSide}) in corso...`
+          : `Poppata ${state.timer.feedType} in corso...`;
+        pauseInd.classList.add("hidden");
+      } else if (state.timer.status === "paused") {
+        statusTxt.textContent = "Cronometro in pausa";
+        pauseInd.classList.remove("hidden");
+        document.getElementById("pause-duration-text").textContent = formatMMSS(getCurrentPauseElapsedMs());
+      } else {
+        statusTxt.textContent = "Pronto per cronometrare la poppata";
+        pauseInd.classList.add("hidden");
+      }
+    }
+
+    function updateTopStatusBanners() {
+      const nextSide = getSuggestedBreastSide();
+      const pill = document.getElementById("suggested-side-pill");
+      if (pill) pill.textContent = `Prossima: ${nextSide === "Sx" ? "Sinistra (Sx)" : "Destra (Dx)"}`;
+
+      const lastFeed = state.feedings[0];
+      if (lastFeed) {
+        document.getElementById("banner-feed-ago").textContent = formatTimeAgo(lastFeed.timestamp);
+        document.getElementById("banner-feed-main").textContent =
+          lastFeed.feedType === "Seno"
+            ? `Seno (${lastFeed.breastSide || "Sx"})`
+            : `${lastFeed.feedType} ${lastFeed.milkMl ? lastFeed.milkMl + "ml" : ""}`;
+        document.getElementById("banner-feed-sub").textContent =
+          `Ore ${formatHHMM(lastFeed.timestamp)} • Prossima: ${nextSide}`;
+      } else {
+        document.getElementById("banner-feed-ago").textContent = "--";
+        document.getElementById("banner-feed-main").textContent = "Nessuna oggi";
+        document.getElementById("banner-feed-sub").textContent = `Consigliata: ${nextSide}`;
+      }
+
+      const lastDiaper = state.diapers[0];
+      if (lastDiaper) {
+        document.getElementById("banner-diaper-ago").textContent = formatTimeAgo(lastDiaper.timestamp);
+        document.getElementById("banner-diaper-main").textContent = lastDiaper.type;
+        document.getElementById("banner-diaper-sub").textContent = `Ore ${formatHHMM(lastDiaper.timestamp)}`;
+      } else {
+        document.getElementById("banner-diaper-ago").textContent = "--";
+        document.getElementById("banner-diaper-main").textContent = "Nessuno oggi";
+        document.getElementById("banner-diaper-sub").textContent = "--";
+      }
+    }
+
+    function renderTodayHistory() {
+      const todayFeeds = state.feedings.filter(f => isToday(f.timestamp));
+      const todayDiapers = state.diapers.filter(d => isToday(d.timestamp));
+      const totalMl = todayFeeds.reduce((acc, f) => acc + (f.milkMl || 0), 0);
+
+      document.getElementById("today-summary-text").textContent =
+        `${todayFeeds.length} poppate${totalMl > 0 ? ` (${totalMl} ml)` : ""} • ${todayDiapers.length} pannolini`;
+
+      const combined = [
+        ...todayFeeds.map(f => ({ kind: "feed", data: f, timestamp: f.timestamp })),
+        ...todayDiapers.map(d => ({ kind: "diaper", data: d, timestamp: d.timestamp }))
+      ].sort((a, b) => b.timestamp - a.timestamp);
+
+      document.getElementById("today-events-count").textContent = `${combined.length} eventi`;
+      const container = document.getElementById("today-events-list");
+
+      if (!combined.length) {
+        container.innerHTML = `
+          <div class="text-center py-6 space-y-2">
+            <p class="text-xs text-muted">Nessuna registrazione per oggi.</p>
+            ${!state.readOnlyScreen ? `
+              <label class="inline-block px-3 py-2 rounded-xl app-elevated text-xs font-bold text-avocado cursor-pointer">
+                📂 Carica Backup JSON
+                <input type="file" accept=".json" onchange="importJSON(event)" class="hidden" />
+              </label>` : ""}
+          </div>`;
+        return;
+      }
+
+      container.innerHTML = combined.map(item => {
+        if (item.kind === "feed") {
+          const f = item.data;
+          const isBreast = f.feedType === "Seno";
+          const label = isBreast
+            ? `Poppata Seno (${f.breastSide || "Sx"})`
+            : `Poppata ${f.feedType}${f.milkMl ? ` • ${f.milkMl} ml` : ""}`;
+          const sub = `${formatHHMM(f.timestamp)} • Durata ${f.durationMin || 0} min`;
+
+          return `
+            <div class="app-elevated rounded-2xl p-3 flex items-center justify-between gap-2">
+              <div class="flex items-center gap-3">
+                <span class="text-xl">${isBreast ? "🤱" : "🍼"}</span>
+                <div>
+                  <div class="font-bold text-sm">${label}</div>
+                  <div class="text-xs text-muted">${sub}</div>
+                </div>
+              </div>
+              ${!state.readOnlyScreen ? `
+                <div class="flex items-center gap-1.5">
+                  ${isBreast ? `
+                    <button type="button" onclick="toggleFeedingSide('${f.id}')"
+                      class="btn-press px-2 py-1 rounded-lg bg-avocado-soft text-avocado text-[11px] font-bold">
+                      ${f.breastSide || "Sx"} ↔
+                    </button>` : ""}
+                  <button type="button" onclick="deleteEvent('feed', '${f.id}')"
+                    class="px-2 py-1 text-xs text-muted hover:text-red-400">✕</button>
+                </div>` : ""}
+            </div>`;
+        } else {
+          const d = item.data;
+          const icon = d.type === "Pipì" ? "💧" : d.type === "Pupù" ? "💩" : "💧+💩";
+          return `
+            <div class="app-elevated rounded-2xl p-3 flex items-center justify-between gap-2">
+              <div class="flex items-center gap-3">
+                <span class="text-xl">${icon}</span>
+                <div>
+                  <div class="font-bold text-sm">Pannolino: ${d.type}</div>
+                  <div class="text-xs text-muted">${formatHHMM(d.timestamp)}</div>
+                </div>
+              </div>
+              ${!state.readOnlyScreen ? `
+                <button type="button" onclick="deleteEvent('diaper', '${d.id}')"
+                  class="px-2 py-1 text-xs text-muted hover:text-red-400">✕</button>` : ""}
+            </div>`;
+        }
+      }).join("");
+    }
+
+    function renderVisits() {
+      const listEl = document.getElementById("visits-list");
+      const roListEl = document.getElementById("readonly-visits-list");
+      const upcoming = state.visits.filter(v => v.timestamp >= Date.now() - 86400000);
+
+      const html = !upcoming.length
+        ? `<p class="text-xs text-muted">Nessuna visita in programma.</p>`
+        : upcoming.map(v => `
+          <div class="app-elevated rounded-2xl p-3 flex items-center justify-between">
+            <div>
+              <div class="font-bold text-sm">${v.title}</div>
+              <div class="text-xs text-muted">${new Date(v.timestamp).toLocaleDateString("it-IT")} alle ${v.timeStr}${v.notes ? ` • ${v.notes}` : ""}</div>
+            </div>
+            ${!state.readOnlyScreen ? `
+              <button type="button" onclick="deleteEvent('visit', '${v.id}')" class="px-2 py-1 text-xs text-muted">✕</button>` : ""}
+          </div>`).join("");
+
+      if (listEl) listEl.innerHTML = html;
+      if (roListEl) roListEl.innerHTML = html;
+    }
+
+    function applyReadOnlyModeUI() {
+      const ro = state.readOnlyScreen;
+      document.getElementById("parent-header-actions").classList.toggle("hidden", ro);
+      document.getElementById("readonly-header-actions").classList.toggle("hidden", !ro);
+      document.getElementById("btn-exit-readonly").classList.toggle("hidden", isUrlReadOnly);
+      document.getElementById("readonly-banner").classList.toggle("hidden", !ro);
+      document.getElementById("parent-controls-wrapper").classList.toggle("hidden", ro);
+      document.getElementById("bottom-nav").classList.toggle("hidden", ro);
+      document.getElementById("readonly-visits-section").classList.toggle("hidden", !ro);
+      document.getElementById("header-subtitle").textContent = ro
+        ? "Bacheca Sola Lettura"
+        : `Famiglia: ${state.familyCode}`;
+    }
+
+    function renderAll() {
+      document.documentElement.className = state.theme;
+      document.getElementById("btn-theme").textContent = state.theme === "dark" ? "☀️" : "🌙";
+      document.getElementById("input-family-code").value = state.familyCode;
+      document.getElementById("input-public-url").value = state.publicUrl || "";
+      if (state.calendarId) {
+        document.getElementById("calendar-status-label").textContent = "Collegato a Diario Francy ✓";
+      }
+      applyReadOnlyModeUI();
+      updateTimerUI();
+      updateTopStatusBanners();
+      renderTodayHistory();
+      renderVisits();
+    }
+
+    function switchTab(tab) {
+      ["daily", "cuddles", "visits"].forEach(t => {
+        document.getElementById(`tab-${t}`).classList.toggle("hidden", t !== tab);
+        const navBtn = document.getElementById(`nav-${t}`);
+        if (t === tab) {
+          navBtn.classList.add("bg-avocado-soft", "text-avocado");
+          navBtn.classList.remove("text-muted");
+        } else {
+          navBtn.classList.remove("bg-avocado-soft", "text-avocado");
+          navBtn.classList.add("text-muted");
+        }
+      });
+    }
+
+    function toggleTheme() {
+      state.theme = state.theme === "dark" ? "light" : "dark";
+      saveLocalState();
+      renderAll();
+    }
+
+    function openModal(id) { document.getElementById(id).classList.remove("hidden"); }
+    function closeModal(id) { document.getElementById(id).classList.add("hidden"); }
+
+    function showToast(msg) {
+      const t = document.getElementById("toast");
+      t.textContent = msg;
+      t.classList.remove("hidden");
+      clearTimeout(window._toastTimer);
+      window._toastTimer = setTimeout(() => t.classList.add("hidden"), 2600);
+    }
+
+    // ==========================================
+    // 9. AVVIO APPLICAZIONE
+    // ==========================================
+    function init() {
+      loadLocalState();
+      const fixed = assignAlternatingSidesIfMissing(state.feedings);
+      if (fixed.modified) {
+        state.feedings = fixed.list;
+        saveLocalState();
+      }
+      autoSelectNextBreastSide();
+      renderAll();
+      startCloudListener();
+
+      setInterval(() => {
+        if (state.timer.status !== "idle") updateTimerUI();
+        updateTopStatusBanners();
+      }, 1000);
+    }
+
+    init();
+  </script>
+</body>
+</html>
